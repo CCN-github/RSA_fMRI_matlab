@@ -95,6 +95,7 @@ for i = 1:length(subdir)
             else
                 load(fullfile(beta_loc,['residuals_' masks{m} '.mat']))
             end
+        end
             
             % cfg.searchlight.unit = 'mm'; % change to vx (voxels) if wanted
             % cfg.searchlight.radius = 2; % change if needed
