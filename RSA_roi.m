@@ -96,32 +96,32 @@ for i = 1:length(subdir)
                 load(fullfile(beta_loc,['residuals_' masks{m} '.mat']))
             end
         end
-            
-            % cfg.searchlight.unit = 'mm'; % change to vx (voxels) if wanted
-            % cfg.searchlight.radius = 2; % change if needed
-            % cfg.searchlight.spherical = 1;
-            cfg.verbose = 0; % change to 1 or 2 if you want to get more feedback while the script is running
-            
-            %% Nothing needs to be changed below for a standard similarity analysis using all data
-            
-            regressor_names = design_from_spm(beta_dir);
-            
-            
-            cfg = decoding_describe_data(cfg,labelnames,labels,regressor_names,beta_dir);
-            if do_cv == 0
-                cfg.design = make_design_similarity(cfg);
-            elseif do_cv == 1
-                % This creates a design in which cross-validation is done between the distance estimates
-                cfg.design = make_design_similarity_cv(cfg);
-            end
-            
-            cfg.design.unbalanced_data = 'ok';
-            % Run decoding
-            if do_MNN == 0
-                results = decoding(cfg);
-            elseif do_MNN == 1
-                results = decoding(cfg,[],misc);
-            end
-                
+        
+        % cfg.searchlight.unit = 'mm'; % change to vx (voxels) if wanted
+        % cfg.searchlight.radius = 2; % change if needed
+        % cfg.searchlight.spherical = 1;
+        cfg.verbose = 0; % change to 1 or 2 if you want to get more feedback while the script is running
+        
+        %% Nothing needs to be changed below for a standard similarity analysis using all data
+        
+        regressor_names = design_from_spm(beta_dir);
+        
+        
+        cfg = decoding_describe_data(cfg,labelnames,labels,regressor_names,beta_dir);
+        if do_cv == 0
+            cfg.design = make_design_similarity(cfg);
+        elseif do_cv == 1
+            % This creates a design in which cross-validation is done between the distance estimates
+            cfg.design = make_design_similarity_cv(cfg);
         end
+        
+        cfg.design.unbalanced_data = 'ok';
+        % Run decoding
+        if do_MNN == 0
+            results = decoding(cfg);
+        elseif do_MNN == 1
+            results = decoding(cfg,[],misc);
+        end
+        
     end
+end
