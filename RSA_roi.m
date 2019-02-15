@@ -116,6 +116,11 @@ for i = 1:length(subdir)
             
             cfg.design.unbalanced_data = 'ok';
             % Run decoding
-            results = decoding(cfg);
+            if do_MNN == 0
+                results = decoding(cfg);
+            elseif do_MNN == 1
+                results = decoding(cfg,[],misc);
+            end
+                
         end
     end
