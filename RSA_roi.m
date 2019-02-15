@@ -21,10 +21,10 @@ clc
 
 % set group parameters
 subdir =  % list of participants (e.g. [1 2 3 4 5])
-filebase =  % common folder where all your subjects subfolders are (e.g. 'D:/data/sub')
+filebase =   % common folder where all your subjects subfolders are (e.g. 'D:/data/sub')
 subfilebase =  % subject folder where beta images are stored (e.g. '/func/GLM_models/rsa/')
 label_order =  % do you want to specify an order for your beta images? (e.g. beta_conditionA_1; beta_conditionA_2; beta_conditionB_1; beta_conditionB_2;). This will be the order in the dissimilarity matrix
-corr_type = 'Pearson'; % distance measure (usually Pearson's r -- to see other distance options do 'edit pattern_similarity' in the command window and check lines 14:23)
+corr_type = % distance measure (usually Pearson's r -- to see other distance options do 'edit pattern_similarity' in the command window and check lines 14:23)
 
 rois =  % cell list with the ROI names (name of the nifti files, and specific folder if needed (e.g. {'FPN/FrontalRight' 'DMN/MPFC'})
 
@@ -45,7 +45,7 @@ for i = 1:length(subdir)
         fprintf(['ROI #' num2str(r) '\t'])
         
         cfg.results.dir = ([fileroot 'results_ROI/' rois{1,r}]) ; % where should results be stored
-        beta_dir = fileroot; % beta images should be here
+        beta_loc = fileroot; % beta images should be here
         cfg.files.mask = ([fileroot 'rois/' rois{1,r} '.nii']); % mask = roi in this case
         
         % If you didn't specifiy a label order before, set the label names to
@@ -86,14 +86,14 @@ for i = 1:length(subdir)
         % available already, you can load them into misc.residuals using only the
         % voxels from cfg.files.mask
         if do_MNN == 1
-            if ~exist(fullfile(beta_loc,['residuals_' masks{m} '.mat']),'file')
+            if ~exist(fullfile(beta_loc,['residuals_' rois{r} '.mat']),'file')
                 cfg.scale.method = 'cov'; % we scale by noise covariance
                 cfg.scale.estimation = 'separate'; % we scale all data for each run separately while iterating across searchlight spheres
                 cfg.scale.shrinkage = 'lw2'; % Ledoit-Wolf shrinkage retaining variances
                 [misc.residuals,cfg.files.residuals.chunk] = residuals_from_spm(fullfile(beta_loc,'SPM.mat'),cfg.files.mask); % this only needs to be run once and can be saved and loaded
-                save((fullfile(beta_loc,['residuals_' masks{m} '.mat'])),'misc')
+                save((fullfile(beta_loc,['residuals_' rois{r} '.mat'])),'misc')
             else
-                load(fullfile(beta_loc,['residuals_' masks{m} '.mat']))
+                load(fullfile(beta_loc,['residuals_' rois{r} '.mat']))
             end
         end
         
