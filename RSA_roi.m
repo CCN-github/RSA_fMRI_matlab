@@ -10,6 +10,9 @@
 % no need to do 1 - output afterwards).
 %
 % 25/01/2018 v.0.1.0: - initial commit
+% 15/02/2019 v 0.2.0: - implemented crossvalidation
+%                     - implemented multivariate noise normalization (see
+%                     https://www.sciencedirect.com/science/article/pii/S1053811915011258)
 %
 % Carlos González-García (carlos.gonzalezgarcia@ugent.be)
 
@@ -25,6 +28,8 @@ corr_type = 'Pearson'; % distance measure (usually Pearson's r -- to see other d
 
 rois =  % cell list with the ROI names (name of the nifti files, and specific folder if needed (e.g. {'FPN/FrontalRight' 'DMN/MPFC'})
 
+do_cv = 1; % compute cross-validated distance (please, keep in mind this will use euclidean distance instance of Pearson's r)
+do_MNN = 1; % do noise normalization (using residuals from SPM.mat)
 for i = 1:length(subdir)
     fprintf(['Starting RSA for subject' num2str(subdir(1,i)) '\t'])
     
@@ -43,7 +48,7 @@ for i = 1:length(subdir)
         beta_dir = fileroot; % beta images should be here
         cfg.files.mask = ([fileroot 'rois/' rois{1,r} '.nii']); % mask = roi in this case
         
-        % If you didn't specifiy a label order before, set the label names to 
+        % If you didn't specifiy a label order before, set the label names to
         % the regressor names which you want to use here, e.g. 'button left' and 'button right'
         % don't remember the names? -> run display_regressor_names(beta_loc)
         labelnames =  {'*Pos*', '*Neg*'};
@@ -52,23 +57,65 @@ for i = 1:length(subdir)
         labels(1:2:length(labelnames)) = -1;
         labels(2:2:length(labelnames)) =  1;
         
-        % set everything to similarity analysis
-        cfg.decoding.software = 'similarity';
-        cfg.decoding.method = 'classification';
-        cfg.decoding.train.classification.model_parameters = corr_type;
-        cfg.results.output = 'other';
+        % set similarity analysis
+        if do_cv == 0
+            cfg.decoding.software = 'similarity';
+            cfg.decoding.method = 'classification';
+            cfg.decoding.train.classification.model_parameters = corr_type;
+            cfg.results.output = 'other';
+        elseif do_cv == 1
+            cfg.decoding.software = 'distance';
+            cfg.decoding.method = 'classification';
+            cfg.decoding.train.classification.model_parameters = 'cveuclidean';
+            % 'other_average' average means averaged across folds. Alternatively, you could use the output 'RSA_beta' which is
+            % more general purpose, but a little more complex. Also, you can use
+            % 'other_meandist', which averages across (dis)similarity matrices of each
+            % cross-validation iteration and across all cells of the lower diagonal
+            % (i.e. all distance comparisons).
+            cfg.results.output = 'other_average'; %
+        end
         
-        % cfg.searchlight.unit = 'mm'; % change to vx (voxels) if wanted
-        % cfg.searchlight.radius = 2; % change if needed
-        % cfg.searchlight.spherical = 1;
-        cfg.verbose = 0; % change to 1 or 2 if you want to get more feedback while the script is running
-        
-        %% Nothing needs to be changed below for a standard similarity analysis using all data
-        regressor_names = design_from_spm(beta_dir);
-        cfg = decoding_describe_data(cfg,labelnames,labels,regressor_names,beta_dir);
-        cfg.design = make_design_similarity(cfg);
-        cfg.design.unbalanced_data = 'ok';
-        % Run decoding
-        results = decoding(cfg);
+        % set normalization
+        % These parameters carry out the multivariate noise normalization using the
+        % residuals.
+        % The crossnobis distance is identical to the cross-validated Euclidean
+        % distance after prewhitening (multivariate noise normalization). It has
+        % been shown that a good estimate for the multivariate noise is provided
+        % by the residuals of the first-level model, in addition with Ledoit-Wolf
+        % regularization. Here we calculate those residuals. If you have them
+        % available already, you can load them into misc.residuals using only the
+        % voxels from cfg.files.mask
+        if do_MNN == 1
+            if ~exist(fullfile(beta_loc,['residuals_' masks{m} '.mat']),'file')
+                cfg.scale.method = 'cov'; % we scale by noise covariance
+                cfg.scale.estimation = 'separate'; % we scale all data for each run separately while iterating across searchlight spheres
+                cfg.scale.shrinkage = 'lw2'; % Ledoit-Wolf shrinkage retaining variances
+                [misc.residuals,cfg.files.residuals.chunk] = residuals_from_spm(fullfile(beta_loc,'SPM.mat'),cfg.files.mask); % this only needs to be run once and can be saved and loaded
+                save((fullfile(beta_loc,['residuals_' masks{m} '.mat'])),'misc')
+            else
+                load(fullfile(beta_loc,['residuals_' masks{m} '.mat']))
+            end
+            
+            % cfg.searchlight.unit = 'mm'; % change to vx (voxels) if wanted
+            % cfg.searchlight.radius = 2; % change if needed
+            % cfg.searchlight.spherical = 1;
+            cfg.verbose = 0; % change to 1 or 2 if you want to get more feedback while the script is running
+            
+            %% Nothing needs to be changed below for a standard similarity analysis using all data
+            
+            regressor_names = design_from_spm(beta_dir);
+            
+            
+            cfg = decoding_describe_data(cfg,labelnames,labels,regressor_names,beta_dir);
+            if do_cv == 0
+                cfg.design = make_design_similarity(cfg);
+            elseif do_cv == 1
+                % This creates a design in which cross-validation is done between the distance estimates
+                cfg.design = make_design_similarity_cv(cfg);
+            end
+            
+            cfg.design.unbalanced_data = 'ok';
+            % Run decoding
+            results = decoding(cfg);
+        end
     end
-end
